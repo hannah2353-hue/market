@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /
+Noindex: /
+
+# This site is internal-use only.
+# Please do not index or crawl.
