@@ -241,11 +241,11 @@ function SignalsTable({ items, onSelect, selectedId, onSeeAll }) {
           <thead>
             <tr className="text-xs text-slate-500 font-medium border-b border-slate-100">
               <th className="text-left px-5 py-2.5 whitespace-nowrap">날짜</th>
-              <th className="text-left px-3 py-2.5 whitespace-nowrap">출처</th>
               <th className="text-left px-3 py-2.5">제목</th>
+              <th className="text-left px-3 py-2.5 whitespace-nowrap">원문</th>
               <th className="text-left px-3 py-2.5 whitespace-nowrap">카테고리</th>
               <th className="text-left px-3 py-2.5 whitespace-nowrap">중요도</th>
-              <th className="text-right px-5 py-2.5 whitespace-nowrap">원문</th>
+              <th className="text-left px-3 py-2.5 whitespace-nowrap">출처</th>
             </tr>
           </thead>
           <tbody>
@@ -259,20 +259,20 @@ function SignalsTable({ items, onSelect, selectedId, onSeeAll }) {
                     selected ? 'bg-orange-50/60' : 'hover:bg-slate-50'
                   }`}>
                   <td className="px-5 py-3 text-slate-600 tabular-nums whitespace-nowrap">{it.original.date}</td>
-                  <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{it.original.source}</td>
                   <td className="px-3 py-3 text-slate-900 font-medium line-clamp-1 min-w-[260px]">{it.original.title || '(제목 없음)'}</td>
+                  <td className="px-5 py-3 whitespace-nowrap">
+                    {it.original.url ? (
+                      <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
+                         className="text-xs text-orange-600 hover:text-orange-700 font-medium">원문 →</a>
+                    ) : <span className="text-xs text-slate-300">—</span>}
+                  </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     <Tag className={catColor(it.original.category)}>{it.original.category}</Tag>
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     <Tag className={imp.color}>{imp.label}</Tag>
                   </td>
-                  <td className="px-5 py-3 whitespace-nowrap text-right">
-                    {it.original.url ? (
-                      <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
-                         className="text-xs text-orange-600 hover:text-orange-700 font-medium">원문 →</a>
-                    ) : <span className="text-xs text-slate-300">—</span>}
-                  </td>
+                  <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{it.original.source}</td>
                 </tr>
               );
             })}
@@ -589,11 +589,11 @@ function AllSignalsModal({ open, onClose, onSelect }) {
             <thead className="sticky top-0 bg-white border-b border-slate-100">
               <tr className="text-xs text-slate-500 font-medium">
                 <th className="text-left px-5 py-2.5 whitespace-nowrap">날짜</th>
-                <th className="text-left px-3 py-2.5 whitespace-nowrap">출처</th>
                 <th className="text-left px-3 py-2.5">제목</th>
+                <th className="text-left px-3 py-2.5 whitespace-nowrap">원문</th>
                 <th className="text-left px-3 py-2.5 whitespace-nowrap">카테고리</th>
                 <th className="text-left px-3 py-2.5 whitespace-nowrap">중요도</th>
-                <th className="text-right px-5 py-2.5 whitespace-nowrap">원문</th>
+                <th className="text-left px-3 py-2.5 whitespace-nowrap">출처</th>
               </tr>
             </thead>
             <tbody>
@@ -603,16 +603,16 @@ function AllSignalsModal({ open, onClose, onSelect }) {
                   <tr key={it.id} onClick={() => onSelect(it)}
                     className="cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
                     <td className="px-5 py-3 text-slate-600 tabular-nums whitespace-nowrap">{it.original.date}</td>
-                    <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{it.original.source}</td>
                     <td className="px-3 py-3 text-slate-900 font-medium line-clamp-1 min-w-[260px]">{it.original.title || '(제목 없음)'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap"><Tag className={catColor(it.original.category)}>{it.original.category}</Tag></td>
-                    <td className="px-3 py-3 whitespace-nowrap"><Tag className={imp.color}>{imp.label}</Tag></td>
-                    <td className="px-5 py-3 whitespace-nowrap text-right">
+                    <td className="px-5 py-3 whitespace-nowrap">
                       {it.original.url ? (
                         <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
                            className="text-xs text-orange-600 hover:text-orange-700 font-medium">원문 →</a>
                       ) : <span className="text-xs text-slate-300">—</span>}
                     </td>
+                    <td className="px-3 py-3 whitespace-nowrap"><Tag className={catColor(it.original.category)}>{it.original.category}</Tag></td>
+                    <td className="px-3 py-3 whitespace-nowrap"><Tag className={imp.color}>{imp.label}</Tag></td>
+                    <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{it.original.source}</td>
                   </tr>
                 );
               })}
@@ -753,11 +753,11 @@ function PageSignals({ onSelect }) {
           <thead>
             <tr className="text-xs text-slate-500 font-medium border-b border-slate-100">
               <th className="text-left px-5 py-2.5 whitespace-nowrap">날짜</th>
-              <th className="text-left px-3 py-2.5 whitespace-nowrap">출처</th>
               <th className="text-left px-3 py-2.5">제목</th>
+              <th className="text-left px-3 py-2.5 whitespace-nowrap">원문</th>
               <th className="text-left px-3 py-2.5 whitespace-nowrap">카테고리</th>
               <th className="text-left px-3 py-2.5 whitespace-nowrap">중요도</th>
-              <th className="text-right px-5 py-2.5 whitespace-nowrap">원문</th>
+              <th className="text-left px-3 py-2.5 whitespace-nowrap">출처</th>
             </tr>
           </thead>
           <tbody>
@@ -767,16 +767,16 @@ function PageSignals({ onSelect }) {
                 <tr key={it.id} onClick={() => onSelect(it)}
                   className="cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
                   <td className="px-5 py-3 text-slate-600 tabular-nums whitespace-nowrap">{it.original.date}</td>
-                  <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{it.original.source}</td>
                   <td className="px-3 py-3 text-slate-900 font-medium line-clamp-1 min-w-[260px]">{it.original.title || '(제목 없음)'}</td>
-                  <td className="px-3 py-3 whitespace-nowrap"><Tag className={catColor(it.original.category)}>{it.original.category}</Tag></td>
-                  <td className="px-5 py-3 whitespace-nowrap"><Tag className={imp.color}>{imp.label}</Tag></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-right">
+                  <td className="px-3 py-3 whitespace-nowrap">
                     {it.original.url ? (
                       <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
                          className="text-xs text-orange-600 hover:text-orange-700 font-medium whitespace-nowrap">원문 →</a>
                     ) : <span className="text-xs text-slate-300">—</span>}
                   </td>
+                  <td className="px-3 py-3 whitespace-nowrap"><Tag className={catColor(it.original.category)}>{it.original.category}</Tag></td>
+                  <td className="px-5 py-3 whitespace-nowrap"><Tag className={imp.color}>{imp.label}</Tag></td>
+                  <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{it.original.source}</td>
                 </tr>
               );
             })}
