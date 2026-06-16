@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
@@ -61,7 +61,7 @@ async function decryptData(password) {
   signalFeed = (analyzed && Array.isArray(analyzed.signals) && analyzed.signals.length)
     ? analyzed.signals.map((s) => ({
         id: (s.date||'') + '|' + (s.title||''),
-        original: { date:s.date, source:s.source, company:s.company, service:'', category:s.category, title:s.title, url:'', content:s.summary },
+        original: { date:s.date, source:s.source, company:s.company, service:'', category:s.category, title:s.title, url:(s.url||''), content:s.summary },
         analysis: { summary:s.summary, importance_score:s.importance_score, keywords:Array.isArray(s.tags)?s.tags:[] }
       }))
     : (analyzed ? (analyzed.data||[]) : []);
