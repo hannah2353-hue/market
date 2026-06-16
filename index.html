@@ -71,6 +71,7 @@ async function decryptData(password) {
 }
 
 const STAGES = ["유입","전환","심사","실행","리텐션"];
+const ideaDate = (it) => it.created_at || (ideasData.timestamp || '').slice(0,10);
 
 const CATEGORY_COLOR = {
   "핀테크":     "bg-sky-50 text-sky-700",
@@ -985,7 +986,7 @@ function PageCompet({ onSelectSignal }) {
 function PageIdeas({ onSelect }) {
   const [filter, setFilter] = useState(null);
   const gaps = [...new Set(ideasData.ideas.map(i => i.gap))];
-  const sorted = [...ideasData.ideas].sort((a,b) => b.confidence_score - a.confidence_score);
+  const sorted = [...ideasData.ideas].sort((a,b) => ideaDate(b).localeCompare(ideaDate(a)) || b.confidence_score - a.confidence_score);
   const filtered = filter ? sorted.filter(i => i.gap === filter) : sorted;
   return (
     <div className="space-y-4">
@@ -1019,6 +1020,7 @@ function PageIdeas({ onSelect }) {
                 <span className="text-xs font-mono text-slate-400">{idea.idea_id.toUpperCase()}</span>
                 <Tag className={GAP_COLOR[idea.gap] || 'bg-slate-100 text-slate-700'}>{idea.gap}</Tag>
                 <Tag className={confClr}>{pct}%</Tag>
+                <span className="text-[11px] text-slate-400 ml-auto whitespace-nowrap">{ideaDate(idea)}</span>
               </div>
               <div className="text-sm font-bold text-slate-900 leading-tight mb-2">{idea.service_name}</div>
               <p className="text-xs text-slate-600 line-clamp-3">{idea.problem_definition}</p>
