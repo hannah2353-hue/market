@@ -32,7 +32,7 @@ const { useState, useEffect, useMemo } = React;
 
 // ============ Encrypted data (AES-GCM + PBKDF2) ============
 const ENCRYPTED = JSON.parse(document.getElementById('encrypted-blob').textContent);
-let analyzed = null, competitor = null, ideasData = null;
+let analyzed = null, competitor = null, ideasData = null, signalFeed = [];
 
 function b64ToBytes(b64) {
   const bin = atob(b64);
@@ -58,6 +58,13 @@ async function decryptData(password) {
   const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
   const obj = JSON.parse(new TextDecoder().decode(plain));
   analyzed = obj.analyzed;
+  signalFeed = (analyzed && Array.isArray(analyzed.signals) && analyzed.signals.length)
+    ? analyzed.signals.map((s) => ({
+        id: (s.date||'') + '|' + (s.title||''),
+        original: { date:s.date, source:s.source, company:s.company, service:'', category:s.category, title:s.title, url:'', content:s.summary },
+        analysis: { summary:s.summary, importance_score:s.importance_score, keywords:Array.isArray(s.tags)?s.tags:[] }
+      }))
+    : (analyzed ? (analyzed.data||[]) : []);
   competitor = obj.competitor;
   ideasData = obj.ideas;
   return true;
@@ -312,7 +319,7 @@ function JourneySummary({ onSeeAll }) {
 function KeywordTrends() {
   const [expanded, setExpanded] = useState(false);
   const map = {};
-  analyzed.data.forEach(it => {
+  signalFeed.forEach(it => {
     (it.analysis.keywords || []).forEach(k => { map[k] = (map[k]||0)+1; });
   });
   const all = Object.entries(map).sort((a,b)=>b[1]-a[1]);
@@ -569,7 +576,7 @@ function NewIdeaPicker({ open, signal, onClose, onPick }) {
 
 function AllSignalsModal({ open, onClose, onSelect }) {
   if (!open) return null;
-  const sorted = [...analyzed.data].sort((a,b)=>b.analysis.importance_score - a.analysis.importance_score);
+  const sorted = [...signalFeed].sort((a,b)=>b.analysis.importance_score - a.analysis.importance_score);
   return (
     <div onClick={onClose} className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
       <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl flex flex-col max-h-[85vh]">
@@ -705,8 +712,8 @@ function PageSignals({ onSelect }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(null);
   const [importance, setImportance] = useState(null);
-  const sorted = [...analyzed.data].sort((a,b)=>b.analysis.importance_score - a.analysis.importance_score);
-  const categories = [...new Set(analyzed.data.map(x => x.original.category))];
+  const sorted = [...signalFeed].sort((a,b)=>b.analysis.importance_score - a.analysis.importance_score);
+  const categories = [...new Set(signalFeed.map(x => x.original.category))];
   const filtered = sorted.filter(it => {
     if (category && it.original.category !== category) return false;
     if (importance === 'high' && it.analysis.importance_score < 5) return false;
@@ -1025,7 +1032,7 @@ function PageIdeas({ onSelect }) {
 
 function PageSaved({ savedIds, savedSignals, onSelectIdea, onSelectSignal }) {
   const ideas = ideasData.ideas.filter(i => savedIds.includes(i.idea_id));
-  const signals = analyzed.data.filter(s => savedSignals.includes(s.id));
+  const signals = signalFeed.filter(s => savedSignals.includes(s.id));
   return (
     <div className="space-y-5">
       <div className="bg-white border border-slate-200 rounded-xl p-5">
@@ -1118,7 +1125,7 @@ function PageSettings() {
 }
 
 function App() {
-  const sorted = useMemo(() => [...analyzed.data].sort((a,b)=>b.analysis.importance_score - a.analysis.importance_score), []);
+  const sorted = useMemo(() => [...signalFeed].sort((a,b)=>b.analysis.importance_score - a.analysis.importance_score), []);
   const [page, setPage] = useState('dashboard');
   const [signal, setSignal] = useState(sorted[0]);
   const [modalIdea, setModalIdea] = useState(null);
