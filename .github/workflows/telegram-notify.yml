@@ -82,7 +82,7 @@ jobs:
           new_today = [x for x in sig if x.get("date") == today]
           top = sorted(sig, key=lambda x: (x.get("date",""), x.get("importance_score",0)),
                        reverse=True)[:5]
-          lines = ["📊 <b>저축은행 시장 인텔리전스</b> — " + today,
+          lines = ["📊 <b>저축은행 시장 동향 리포트</b> — " + today,
                    "🆕 오늘 신규 " + str(len(new_today)) + "건 · 총 " + str(len(sig)) + "건", ""]
           for idx, x in enumerate(top, 1):
               cat = str(x.get("category",""))
