@@ -1,0 +1,107 @@
+name: Telegram daily summary
+
+# 매일 10:30 KST(01:30 UTC)에 main의 암호화 데이터를 복호화해
+# 오늘 갱신분이면 텔레그램 요약을 relay로 전송한다.
+# 루틴(09:00 KST 데이터 갱신)과 완전 분리 — 하루 한 번만 돌아 중복 없음.
+# 수동 실행(workflow_dispatch)으로 언제든 테스트 가능.
+
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'signals_updated_at가 오늘이 아니어도 강제 발송'
+        type: boolean
+        default: false
+
+concurrency:
+  group: telegram-notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install cryptography
+        run: pip install -q cryptography
+
+      - name: Decrypt data and send telegram summary
+        env:
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          MI_RELAY_SECRET: ${{ secrets.MI_RELAY_SECRET }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          python - <<'PY'
+          import json, base64, pathlib, html, datetime, os, sys, urllib.request
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+          from cryptography.hazmat.primitives import hashes
+
+          PASSWORD = os.environ["DASHBOARD_PASSWORD"]
+          RELAY_SECRET = os.environ["MI_RELAY_SECRET"]
+          RELAY_URL = "https://news-dashboard-delta.vercel.app/api/relay"
+          FORCE = os.environ.get("FORCE", "").lower() == "true"
+
+          # --- 복호화 (루틴 1단계와 동일 로직) ---
+          doc = pathlib.Path("index.html").read_text(encoding="utf-8")
+          open_tag = '<script id="encrypted-blob" type="application/json">'
+          i = doc.index(open_tag) + len(open_tag)
+          j = doc.index("</script>", i)
+          blob = json.loads(doc[i:j])
+          key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32,
+                           salt=base64.b64decode(blob["salt"]),
+                           iterations=blob["iterations"]).derive(PASSWORD.encode())
+          state = json.loads(AESGCM(key).decrypt(
+              base64.b64decode(blob["iv"]),
+              base64.b64decode(blob["ciphertext"]), None).decode())
+
+          a = state["analyzed"]
+          sig = a.get("signals", [])
+          today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+          updated = a.get("signals_updated_at", "")
+
+          # --- 신선도 가드: 오늘 갱신분이 아니면 스킵(루틴 실패한 날 stale 발송 방지) ---
+          if updated != today and not FORCE:
+              print(f"skip: signals_updated_at={updated} != today={today} (루틴이 오늘 갱신 안 함)")
+              sys.exit(0)
+
+          # --- 요약 작성 (루틴 7단계와 동일 포맷) ---
+          STAGE_EMOJI = {"유입":"📥","전환":"🔄","심사":"🔍","실행":"💸",
+                         "리텐션":"🔒","정책":"🏛️","트렌드":"🌐"}
+          new_today = [x for x in sig if x.get("date") == today]
+          top = sorted(sig, key=lambda x: (x.get("date",""), x.get("importance_score",0)),
+                       reverse=True)[:5]
+          lines = ["📊 <b>저축은행 시장 인텔리전스</b> — " + today,
+                   "🆕 오늘 신규 " + str(len(new_today)) + "건 · 총 " + str(len(sig)) + "건", ""]
+          for idx, x in enumerate(top, 1):
+              cat = str(x.get("category",""))
+              em = STAGE_EMOJI.get(cat, "📌")
+              lines.append(str(idx) + ". " + em + " [" + html.escape(cat) + "] "
+                           + html.escape(str(x.get("title",""))))
+              u = str(x.get("url","")).strip()
+              if u:
+                  lines.append('🔗 <a href="' + html.escape(u, quote=True) + '">원문 기사 보기</a>')
+              lines.append("")
+          lines.append('📈 <a href="https://hannah2353-hue.github.io/market/">대시보드 전체 보기</a>')
+          text = chr(10).join(lines)
+
+          # --- 전송 (Python urllib + UTF-8, 인코딩 안전) ---
+          payload = json.dumps({"text": text, "secret": RELAY_SECRET}).encode("utf-8")
+          req = urllib.request.Request(RELAY_URL, data=payload,
+                                       headers={"Content-Type": "application/json"})
+          r = json.loads(urllib.request.urlopen(req, timeout=30).read().decode())
+          print("telegram relay:", r)
+          if not r.get("ok"):
+              sys.exit("relay가 ok를 반환하지 않음")
+          PY
