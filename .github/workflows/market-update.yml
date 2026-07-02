@@ -1,0 +1,44 @@
+name: Market data daily update
+
+# 매일 09:00 KST(00:00 UTC)에 Claude API + 웹검색으로 지난 24~48시간 저축은행
+# 시장 변화를 조사해 암호화 데이터를 갱신하고 main에 push한다.
+# (기존 claude.ai 루틴이 실행 환경 문제로 죽어 이 Action으로 이관됨.)
+# 이후 telegram-notify.yml(01:30 UTC)이 갱신된 데이터를 텔레그램으로 요약 발송한다.
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: pip install -q cryptography anthropic
+
+      - name: Decrypt -> research -> update -> push
+        env:
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python routine/decrypt.py
+          python routine/research.py
+          python routine/update.py

@@ -104,10 +104,10 @@ sh('git config user.email "routine@market.local"')
 sh('git config user.name "MI Routine"')
 sh("git add index.html")
 sh('git commit -m "data: auto-update %s"' % today)
-rc, out, err = sh("git push origin main")
+rc, out, err = sh("git push origin HEAD:main")
 if rc != 0:
     sh("git pull --rebase origin main")
-    rc, out, err = sh("git push origin main")
+    rc, out, err = sh("git push origin HEAD:main")
 
 if DRY:
     print("[DRY] skip push verify")
