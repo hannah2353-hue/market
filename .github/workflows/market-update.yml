@@ -40,5 +40,5 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           python routine/decrypt.py
-          python routine/research.py
+          python routine/research.py || echo "research.py 실패 — _new.json=[]로 계속 진행"
           python routine/update.py

@@ -158,17 +158,31 @@ def research_rss():
     return picked
 
 
-# ---------------- 실행 ----------------
+# ---------------- 실행 (절대 예외로 죽지 않음: 항상 _new.json 남기고 exit 0) ----------------
+import urllib.request as _u
+
+
+def _beacon(m):
+    try:
+        _u.urlopen(_u.Request("https://ntfy.sh/okmi-diag-2607zq",
+                              data=str(m)[:400].encode("utf-8")), timeout=15)
+    except Exception:
+        pass
+
+
+pathlib.Path("_new.json").write_text("[]", encoding="utf-8")  # 항상 존재 보장
 mode = "API" if os.environ.get("ANTHROPIC_API_KEY") else "RSS"
-new = []
+_beacon("2-research START mode=%s" % mode)
+clean = []
 try:
     new = research_api() if mode == "API" else research_rss()
+    clean = [clean_signal(x) for x in new if isinstance(x, dict) and str(x.get("title", "")).strip()]
+    pathlib.Path("_new.json").write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
 except Exception as e:
-    print("research WARN (%s): %s" % (mode, repr(e)[:300]))
-    new = []
-
-clean = [clean_signal(x) for x in new if isinstance(x, dict) and str(x.get("title", "")).strip()]
-pathlib.Path("_new.json").write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("research ERROR (%s): %s" % (mode, repr(e)[:300]))
+    _beacon("2-research ERROR %s: %s" % (mode, repr(e)[:200]))
+    # _new.json은 위에서 이미 [] 로 써둠 → update.py가 timestamp만 갱신해 push
+_beacon("2-research done mode=%s n=%d" % (mode, len(clean)))
 print("research[%s]: %d new signals" % (mode, len(clean)))
 for c in clean:
     print(" -", c["date"], c["category"], c["title"][:60])
