@@ -7,7 +7,7 @@ name: Market data daily update
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 21 * * *'   # 06:00 KST — 텔레그램(09:15 KST)보다 3시간+ 앞서 데이터 준비
   workflow_dispatch:
 
 permissions:

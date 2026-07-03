@@ -22,7 +22,8 @@ beacon("3-update START")
 PASSWORD = os.environ["DASHBOARD_PASSWORD"]
 ITER = 100000
 DRY = os.environ.get("DRY_RUN") == "1"
-today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+KST = datetime.timezone(datetime.timedelta(hours=9))
+today = datetime.datetime.now(KST).strftime("%Y-%m-%d")  # KST 날짜 기준
 
 s = json.load(open("_state.json", encoding="utf-8"))
 a = s["analyzed"]

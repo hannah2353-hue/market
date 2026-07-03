@@ -6,7 +6,8 @@ _state.json(기존 시그널)을 읽고 새 시그널 후보를 _new.json에 저
 어느 경우든 실패해도 예외로 죽지 않고 []를 저장 → update.py가 timestamp만 갱신해 push."""
 import os, json, pathlib, datetime, re
 
-today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+KST = datetime.timezone(datetime.timedelta(hours=9))
+today = datetime.datetime.now(KST).strftime("%Y-%m-%d")  # KST 날짜 기준
 state = json.load(open("_state.json", encoding="utf-8"))
 existing = state["analyzed"]["signals"]
 
