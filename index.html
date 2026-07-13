@@ -713,6 +713,7 @@ function PageSignals({ onSelect }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(null);
   const [importance, setImportance] = useState(null);
+  const [expanded, setExpanded] = useState(null);
   const sorted = [...signalFeed].sort((a,b)=>b.analysis.importance_score - a.analysis.importance_score);
   const categories = [...new Set(signalFeed.map(x => x.original.category))];
   const filtered = sorted.filter(it => {
@@ -764,21 +765,43 @@ function PageSignals({ onSelect }) {
           <tbody>
             {filtered.map(it => {
               const imp = importanceOf(it.analysis.importance_score);
+              const open = expanded === it.id;
               return (
-                <tr key={it.id} onClick={() => onSelect(it)}
-                  className="cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
-                  <td className="px-5 py-3 text-slate-600 tabular-nums whitespace-nowrap">{it.original.date}</td>
-                  <td className="px-3 py-3 text-slate-900 font-medium line-clamp-1 min-w-[260px]">{it.original.title || '(제목 없음)'}</td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                <React.Fragment key={it.id}>
+                <tr onClick={() => setExpanded(open ? null : it.id)}
+                  className={`cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 ${open ? 'bg-slate-50' : ''}`}>
+                  <td className="px-5 py-3 text-slate-600 tabular-nums whitespace-nowrap align-top">{it.original.date}</td>
+                  <td className={`px-3 py-3 text-slate-900 font-medium min-w-[260px] ${open ? '' : 'line-clamp-1'}`}>
+                    <span className={`inline-block mr-1.5 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
+                    {it.original.title || '(제목 없음)'}
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap align-top">
                     {it.original.url ? (
                       <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
                          className="text-xs text-orange-600 hover:text-orange-700 font-medium whitespace-nowrap">원문 →</a>
                     ) : <span className="text-xs text-slate-300">—</span>}
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap"><Tag className={catColor(it.original.category)}>{it.original.category}</Tag></td>
-                  <td className="px-5 py-3 whitespace-nowrap"><Tag className={imp.color}>{imp.label}</Tag></td>
-                  <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{it.original.source}</td>
+                  <td className="px-3 py-3 whitespace-nowrap align-top"><Tag className={catColor(it.original.category)}>{it.original.category}</Tag></td>
+                  <td className="px-5 py-3 whitespace-nowrap align-top"><Tag className={imp.color}>{imp.label}</Tag></td>
+                  <td className="px-3 py-3 text-slate-700 whitespace-nowrap align-top">{it.original.source}</td>
                 </tr>
+                {open && (
+                  <tr className="bg-slate-50/60 border-b border-slate-100">
+                    <td colSpan="6" className="px-5 pb-4 pt-0">
+                      <div className="text-sm text-slate-700 leading-relaxed mb-3">{it.analysis.summary || '(요약 없음)'}</div>
+                      {Array.isArray(it.analysis.keywords) && it.analysis.keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {it.analysis.keywords.map((k, ki) => <Tag key={ki} className="bg-slate-100 text-slate-600">{k}</Tag>)}
+                        </div>
+                      )}
+                      {it.original.url && (
+                        <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
+                           className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700">🔗 원문 기사 열기 →</a>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               );
             })}
             {filtered.length === 0 && <tr><td colSpan="6" className="text-center text-sm text-slate-500 py-12">조건에 맞는 시그널이 없습니다</td></tr>}
