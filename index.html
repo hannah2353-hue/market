@@ -106,6 +106,35 @@ const GAP_COLOR = {
   "유입":      "bg-blue-50 text-blue-700",
 };
 
+// 기사 → 아이디어 연관도 점수 (키워드·회사·카테고리 매칭)
+function ideaMatchScore(idea, signal) {
+  if (!signal) return 0;
+  const ts = idea.target_customer || {};
+  const ps = idea.partnership_structure || {};
+  const hay = [
+    idea.service_name, idea.problem_definition, idea.solution_approach,
+    idea.revenue_model, idea.mvp_scope, idea.based_on_insight, idea.gap,
+    ts.primary, ts.secondary, ps.자사, ps.파트너
+  ].filter(Boolean).join(' ').toLowerCase();
+  let score = 0;
+  const o = signal.original || {};
+  // 회사명 (저축은행/은행 접미사 제거한 핵심 브랜드로 매칭)
+  const co = String(o.company || '').toLowerCase().replace(/저축은행|은행|주식회사|㈜/g, '').trim();
+  if (co.length >= 2 && hay.includes(co)) score += 3;
+  // 카테고리
+  const cat = String(o.category || '').toLowerCase().trim();
+  if (cat.length >= 2 && hay.includes(cat)) score += 2;
+  // 키워드/태그
+  ((signal.analysis && signal.analysis.keywords) || []).forEach(k => {
+    const kw = String(k).toLowerCase().trim();
+    if (kw.length >= 2 && hay.includes(kw)) score += 1;
+  });
+  // 구 원천코드(r001 등) 레거시 연결 보너스
+  if (idea.based_on_insight && signal.id &&
+      idea.based_on_insight.toLowerCase().includes(String(signal.id).toLowerCase())) score += 5;
+  return score;
+}
+
 function Tag({ className='', children }) {
   return <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md ${className}`}>{children}</span>;
 }
@@ -538,11 +567,14 @@ function NewIdeaPicker({ open, signal, onClose, onPick }) {
   if (!open) return null;
   let related = [];
   if (signal) {
-    related = ideasData.ideas.filter(i =>
-      i.based_on_insight && i.based_on_insight.toLowerCase().includes(signal.id.toLowerCase())
-    );
+    related = ideasData.ideas
+      .map(i => ({ i, s: ideaMatchScore(i, signal) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .map(x => x.i);
   }
-  const pool = related.length > 0 ? related : [...ideasData.ideas];
+  const matched = related.length > 0;
+  const pool = matched ? related : [...ideasData.ideas];
   return (
     <div onClick={onClose} className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
       <div onClick={e => e.stopPropagation()}
@@ -553,7 +585,11 @@ function NewIdeaPicker({ open, signal, onClose, onPick }) {
         </div>
         <div className="p-5">
           <p className="text-sm text-slate-600 mb-4">
-            {signal ? <><b className="text-slate-900">{signal.original.title}</b>에 연결된 아이디어 {pool.length}건</> : '전체 아이디어 풀에서 선택하세요'}
+            {signal
+              ? (matched
+                  ? <><b className="text-slate-900">{signal.original.title}</b> 와(과) 연관된 아이디어 {pool.length}건</>
+                  : <><b className="text-slate-900">{signal.original.title}</b> 와(과) 직접 연결된 아이디어가 없어, 전체 {pool.length}건을 보여드립니다</>)
+              : '전체 아이디어 풀에서 선택하세요'}
           </p>
           <div className="space-y-2 max-h-[50vh] overflow-y-auto scroll-thin">
             {pool.map(idea => (
@@ -709,7 +745,7 @@ const PAGE_TITLE = {
   settings:  '설정',
 };
 
-function PageSignals({ onSelect }) {
+function PageSignals({ onGenerate }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(null);
   const [importance, setImportance] = useState(null);
@@ -794,10 +830,17 @@ function PageSignals({ onSelect }) {
                           {it.analysis.keywords.map((k, ki) => <Tag key={ki} className="bg-slate-100 text-slate-600">{k}</Tag>)}
                         </div>
                       )}
-                      {it.original.url && (
-                        <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
-                           className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700">🔗 원문 기사 열기 →</a>
-                      )}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button onClick={e => { e.stopPropagation(); onGenerate(it); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white text-xs font-semibold rounded-lg hover:bg-orange-600 transition-colors">
+                          <Icon name="bulb" className="w-4 h-4" />
+                          이 기사로 아이디어 탐색 →
+                        </button>
+                        {it.original.url && (
+                          <a href={it.original.url} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
+                             className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700">🔗 원문 기사 열기 →</a>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -1218,7 +1261,7 @@ function App() {
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 <div className="xl:col-span-2 space-y-5">
-                  <SignalsTable items={sorted.slice(0,5)} onSelect={setSignal} selectedId={signal?.id} onSeeAll={() => setAllSignalsOpen(true)} />
+                  <SignalsTable items={sorted.slice(0,5)} onSelect={handleGenerate} selectedId={signal?.id} onSeeAll={() => setAllSignalsOpen(true)} />
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
                     <div className="md:col-span-3"><JourneySummary onSeeAll={() => setJourneyDetailOpen(true)} /></div>
                     <div className="md:col-span-2"><KeywordTrends /></div>
@@ -1237,7 +1280,7 @@ function App() {
             </div>
           )}
 
-          {page === 'signals' && <PageSignals onSelect={(it) => { setSignal(it); setPage('dashboard'); }} />}
+          {page === 'signals' && <PageSignals onGenerate={handleGenerate} />}
           {page === 'compet' && <PageCompet onSelectSignal={(it) => { setSignal(it); setPage('dashboard'); }} />}
           {page === 'ideas' && <PageIdeas onSelect={setModalIdea} />}
           {page === 'saved' && <PageSaved savedIds={savedIds} savedSignals={savedSignals}
@@ -1253,7 +1296,7 @@ function App() {
       <NewIdeaPicker open={pickerOpen} signal={signal} onClose={() => setPickerOpen(false)}
         onPick={(idea) => { setPickerOpen(false); setModalIdea(idea); }} />
       <AllSignalsModal open={allSignalsOpen} onClose={() => setAllSignalsOpen(false)}
-        onSelect={(it) => { setSignal(it); setAllSignalsOpen(false); }} />
+        onSelect={(it) => { setAllSignalsOpen(false); handleGenerate(it); }} />
       <AllIdeasModal open={allIdeasOpen} onClose={() => setAllIdeasOpen(false)}
         onSelect={(idea) => { setModalIdea(idea); setAllIdeasOpen(false); }} />
       <JourneyDetailModal open={journeyDetailOpen} onClose={() => setJourneyDetailOpen(false)} />
