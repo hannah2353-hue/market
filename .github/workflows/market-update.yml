@@ -46,6 +46,11 @@ jobs:
           IDEATE_BACKFILL: ${{ github.event.inputs.backfill }}
         run: |
           python routine/decrypt.py
-          python routine/research.py || echo "research.py 실패 — _new.json=[]로 계속 진행"
+          if [ "$IDEATE_BACKFILL" = "true" ]; then
+            echo "[] " > _new.json
+            echo "백필 모드 — research 건너뜀(기사 교체 방지, 아이디어만 보충)"
+          else
+            python routine/research.py || echo "research.py 실패 — _new.json=[]로 계속 진행"
+          fi
           python routine/ideate.py || echo "ideate.py 실패 — 아이디어 생성 건너뜀"
           python routine/update.py
