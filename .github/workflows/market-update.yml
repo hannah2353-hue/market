@@ -37,12 +37,12 @@ jobs:
           python-version: '3.12'
 
       - name: Install deps
-        run: pip install -q cryptography anthropic
+        run: pip install -q cryptography google-generativeai
 
       - name: Decrypt -> research -> update -> push
         env:
           DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           IDEATE_BACKFILL: ${{ github.event.inputs.backfill }}
         run: |
           python routine/decrypt.py
