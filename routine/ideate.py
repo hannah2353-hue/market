@@ -6,7 +6,7 @@ _state.json의 ideas 앞쪽에 주입한다. (decrypt → research → [ideate] 
 - 생성 아이디어의 based_on_insight = '날짜|제목' (대시보드 시그널 id와 동일)으로 저장 →
   대시보드가 해당 기사와 정확히 연결해 보여준다.
 """
-import os, json, pathlib, datetime, re, urllib.request
+import os, json, pathlib, datetime, re, hashlib, urllib.request
 
 BEACON = "https://ntfy.sh/okmi-diag-2607zq"
 def beacon(msg):
@@ -17,8 +17,9 @@ def beacon(msg):
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
-MAX_NEW_IDEAS = 3    # 하루 최대 생성 개수(비용 상한)
-MAX_AUTO_KEEP = 20   # 자동 생성 아이디어 누적 상한(시드 아이디어는 항상 보존)
+MAX_NEW_IDEAS = 3    # 하루 새 기사 아이디어 생성 상한(비용 상한)
+MAX_BACKFILL = 20    # 백필 1회 최대 생성 개수(기존 기사 일괄 채우기)
+MAX_AUTO_KEEP = 24   # 자동 생성 아이디어 누적 상한(시드 아이디어는 항상 보존)
 
 
 def norm(t):
@@ -27,6 +28,11 @@ def norm(t):
 
 def sig_id(s):
     return "%s|%s" % (str(s.get("date", "")), str(s.get("title", "")))
+
+
+def idea_id_for(s):
+    # 기사별 안정적·고유 id (같은 기사는 항상 같은 id → 재실행해도 중복 생성 안 함)
+    return "auto-" + hashlib.md5(sig_id(s).encode("utf-8")).hexdigest()[:8]
 
 
 def clean_idea(x, signal, idea_id):
@@ -125,29 +131,40 @@ def main():
             new = []
     except Exception:
         new = []
-    if not new:
-        print("ideate: 새 시그널 없음 — skip")
-        beacon("2.5-ideate skip(no new)")
-        return
 
+    backfill = os.environ.get("IDEATE_BACKFILL", "").strip().lower() in ("1", "true", "yes")
     ideas_obj = state.setdefault("ideas", {})
     ideas = ideas_obj.setdefault("ideas", [])
-    existing_titles = {norm(s.get("title", "")) for s in state.get("analyzed", {}).get("signals", [])}
+    state_signals = state.get("analyzed", {}).get("signals", [])
+    existing_titles = {norm(s.get("title", "")) for s in state_signals}
     already = {i.get("based_on_insight", "") for i in ideas}
 
-    cands = [s for s in new
-             if norm(s.get("title", "")) not in existing_titles
-             and sig_id(s) not in already]
-    cands.sort(key=lambda s: s.get("importance_score", 0), reverse=True)
-    cands = cands[:MAX_NEW_IDEAS]
-    if not cands:
-        print("ideate: 후보 시그널 없음 — skip")
+    # 1) 새 시그널(오늘 조사분): 기존과 중복 아니고 아직 아이디어 없는 것
+    new_cands = [s for s in new
+                 if norm(s.get("title", "")) not in existing_titles
+                 and sig_id(s) not in already]
+    new_cands.sort(key=lambda s: s.get("importance_score", 0), reverse=True)
+    new_cands = new_cands[:MAX_NEW_IDEAS]
+
+    # 2) 백필(옵션): 대시보드에 이미 있는 기사 중 아이디어 없는 것 일괄 생성
+    back_cands = []
+    if backfill:
+        back_cands = [s for s in state_signals if sig_id(s) not in already]
+        back_cands.sort(key=lambda s: s.get("importance_score", 0), reverse=True)
+        back_cands = back_cands[:MAX_BACKFILL]
+
+    todo = new_cands + back_cands
+    if not todo:
+        print("ideate: 후보 시그널 없음 — skip (backfill=%s)" % backfill)
+        beacon("2.5-ideate skip(no cand) backfill=%s" % backfill)
         return
 
     import anthropic
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     made = 0
-    for k, s in enumerate(cands):
+    for s in todo:
+        if sig_id(s) in already:   # 이번 실행 중 중복 방지
+            continue
         try:
             raw = generate_one(client, s)
         except Exception as e:
@@ -156,8 +173,8 @@ def main():
         if not raw:
             print("ideate: JSON 파싱 실패", str(s.get("title", ""))[:30])
             continue
-        idea_id = "auto-%s-%d" % (today.replace("-", ""), k + 1)
-        ideas.insert(0, clean_idea(raw, s, idea_id))  # 최신이 앞으로 → '최근 생성 아이디어'에 노출
+        ideas.insert(0, clean_idea(raw, s, idea_id_for(s)))  # 최신이 앞 → '최근 생성 아이디어'에 노출
+        already.add(sig_id(s))
         made += 1
 
     # 자동 생성 아이디어 누적 상한 (created_at 오래된 것부터 제거, 시드는 보존)
